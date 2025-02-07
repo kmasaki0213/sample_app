@@ -69,6 +69,12 @@ class LogoutTest < Logout
     assert_redirected_to root_url  # ホームページにリダイレクトされることを確認
   end
 
+  # 2番目のウィンドウでログアウトをクリックするユーザーをシミュレートする
+  test "should still work after logout in second window" do
+    delete logout_path
+    assert_redirected_to root_url
+  end
+
   # ログアウト後のページ遷移やリンクを確認するテスト
   test "redirect after logout" do
     follow_redirect!  # リダイレクトを実行
@@ -77,5 +83,23 @@ class LogoutTest < Logout
     assert_select "a[href=?]", login_path  # ログインリンクが再び表示されていることを確認
     assert_select "a[href=?]", logout_path, count: 0  # ログアウトリンクが消えていることを確認
     assert_select "a[href=?]", user_path(@user), count: 0  # プロフィールページへのリンクが消えていることを確認
+  end
+
+end
+
+class RememberingTest < UsersLoginTest
+
+  test "login with remembering" do
+    log_in_as(@user, remember_me: '1')
+    assert_not cookies[:remember_token].blank?
+    assert_equal cookies[:remember_token], assigns(:user).remember_token
+  end
+
+  test "login without remembering" do
+    # Cookieを保存してログイン
+    log_in_as(@user, remember_me: '1')
+    # Cookieが削除されていることを検証してからログイン
+    log_in_as(@user, remember_me: '0')
+    assert cookies[:remember_token].blank?
   end
 end
