@@ -12,22 +12,22 @@ class UsersController < ApplicationController
   end
 
   def index
-    @users = User.paginate(page: params[:page])
+    @users = User.where(activated: true).paginate(page: params[:page])  # ✅ アクティベート済みのユーザーのみ取得
   end
-
-  # ユーザープロフィールページを表示
+  
   def show
-    @user = User.find(params[:id])  # `id` に対応する `User` をデータベースから取得
+    @user = User.find(params[:id])
+    redirect_to root_url and return unless @user.activated?  # ✅ アクティベートされていなければ、ルートページへリダイレクト
   end
+  
 
   # 新規ユーザーを作成（サインアップ処理）
   def create
     @user = User.new(user_params)  # フォームから送られたデータを使って `User` オブジェクトを作成
     if @user.save  # ユーザーの保存に成功した場合
-      reset_session  # セッションをリセット（セキュリティ対策）
-      log_in @user  # ユーザーをログイン状態にする
-      flash[:success] = "Welcome to the Sample App!"  # フラッシュメッセージをセット
-      redirect_to @user  # ユーザープロフィールページへリダイレクト
+      @user.send_activation_email
+      flash[:info] = "Please check your email to activate your account."
+      redirect_to root_url
     else  # 保存に失敗した場合
       render 'new', status: :unprocessable_entity  # `new` テンプレートを再表示（エラーメッセージ付き）
     end

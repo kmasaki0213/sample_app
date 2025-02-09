@@ -1,41 +1,70 @@
-require "test_helper"  # Railsのテスト環境をセットアップ
+require "test_helper"
 
-class UsersIndexTest < ActionDispatch::IntegrationTest
+class UsersIndex < ActionDispatch::IntegrationTest
 
-  # 各テストの実行前に `@admin`（管理者）と `@non_admin`（一般ユーザー）をセットアップ
   def setup
-    @admin     = users(:michael)  # 管理者ユーザー
-    @non_admin = users(:archer)   # 一般ユーザー
+    @admin     = users(:michael)
+    @non_admin = users(:archer)
+  end
+end
+
+class UsersIndexAdmin < UsersIndex
+
+  def setup
+    super
+    log_in_as(@admin)
+    get users_path
+  end
+end
+
+class UsersIndexAdminTest < UsersIndexAdmin
+
+  test "should render the index page" do
+    assert_template 'users/index'
   end
 
-  # 管理者ユーザーとして「ユーザー一覧ページ」にアクセスした場合のテスト
-  test "index as admin including pagination and delete links" do
-    log_in_as(@admin)  # 管理者としてログイン
-    get users_path  # `GET /users`（ユーザー一覧ページ）にアクセス
-    assert_template 'users/index'  # `users/index` テンプレートが表示されることを確認
-    assert_select 'div.pagination'  # ページネーションが存在することを確認
+  test "should paginate users" do
+    assert_select 'div.pagination'
+  end
 
-    # 1ページ目のユーザーを取得（ページネーション対応）
-    first_page_of_users = User.paginate(page: 1)
+  test "should have delete links" do
+    first_page_of_users = User.where(activated: true).paginate(page: 1)
     first_page_of_users.each do |user|
-      assert_select 'a[href=?]', user_path(user), text: user.name  # 各ユーザーの詳細ページへのリンクがあることを確認
-      unless user == @admin  # 管理者自身には「削除リンク」を表示しない
-        assert_select 'a[href=?]', user_path(user), text: 'delete'  # 一般ユーザーには削除リンクが表示されることを確認
+      assert_select 'a[href=?]', user_path(user), text: user.name
+      unless user == @admin
+        assert_select 'a[href=?]', user_path(user), text: 'delete'
       end
     end
-
-    # `delete` リクエストを送り、一般ユーザー（@non_admin）を削除できることを確認
-    assert_difference 'User.count', -1 do  # ユーザー数が1減ることを確認
-      delete user_path(@non_admin)  # `DELETE /users/:id`（ユーザー削除）
-      assert_response :see_other  # HTTP 303 See Other（リダイレクトが発生）
-      assert_redirected_to users_url  # ユーザー一覧ページにリダイレクトされることを確認
-    end
   end
 
-  # 一般ユーザーとして「ユーザー一覧ページ」にアクセスした場合のテスト
-  test "index as non-admin" do
-    log_in_as(@non_admin)  # 一般ユーザーとしてログイン
-    get users_path  # `GET /users`（ユーザー一覧ページ）にアクセス
-    assert_select 'a', text: 'delete', count: 0  # 「削除リンク」が1つも表示されていないことを確認
+  test "should be able to delete non-admin user" do
+    assert_difference 'User.count', -1 do
+      delete user_path(@non_admin)
+    end
+    assert_response :see_other
+    assert_redirected_to users_url
+  end
+
+  test "should display only activated users" do
+    # 最初のページにいる最初のユーザーを無効化する
+    User.paginate(page: 1).first.toggle!(:activated)  # `activated` の値を反転（有効→無効）
+  
+    # /users を再度取得し、無効化済みのユーザーが表示されていないことを確認
+    get users_path      
+  
+    # 表示されているすべてのユーザーがアクティベート済みであることを確認
+    assigns(:users).each do |user|
+      assert user.activated?  # すべてのユーザーが `activated: true` であることを確認
+    end
+  end
+  
+end
+
+class UsersNonAdminIndexTest < UsersIndex
+
+  test "should not have delete links as non-admin" do
+    log_in_as(@non_admin)
+    get users_path
+    assert_select 'a', text: 'delete', count: 0
   end
 end
