@@ -102,6 +102,7 @@ class UserTest < ActiveSupport::TestCase
     # フォローしているユーザーの投稿を確認
     lana.microposts.each do |post_following|
       assert michael.feed.include?(post_following)
+      assert_equal michael.feed.distinct, michael.feed
     end
     # フォロワーがいるユーザー自身の投稿を確認
     michael.microposts.each do |post_self|

@@ -35,6 +35,13 @@ class FollowPagesTest < Following
       assert_select "a[href=?]", user_path(user)  # 各フォロワーのプロフィールリンクが存在することを確認
     end
   end
+
+  test "feed on Home page" do
+    get root_path  # ホームページを開く
+    @user.feed.paginate(page: 1).each do |micropost|
+      assert_match CGI.escapeHTML(micropost.content), response.body  # ✅ 投稿内容がHTMLエスケープされてページに含まれているか確認
+    end
+  end  
 end
 
 # フォロー機能のテスト
